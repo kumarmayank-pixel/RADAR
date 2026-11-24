@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1119">
+  <meta name="description" content="RADAR — Exam, Lab & Assignment Deadline Scanner">
+  <title>RADAR · Academic Deadline Scanner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section class="auth-screen" id="authScreen" aria-labelledby="authTitle">
+    <div class="auth-card"><a class="brand auth-brand" href="#"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span><span><strong>RADAR</strong><small>ACADEMIC COMMAND CENTER</small></span></a><span class="eyebrow">CLOUD SYNC · SECURE SIGN IN</span><h1 id="authTitle">Your deadlines,<br><em>wherever you are.</em></h1><p class="page-subtitle">Sign in on your phone or laptop to access the same RADAR data.</p>
+      <form id="authForm"><label class="field-label">Email address<input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com" required></label><label class="field-label">Password<input id="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters" required></label><button class="primary-button auth-submit" id="authSubmit" type="submit">Sign in</button><p class="auth-feedback" id="authFeedback" aria-live="polite"></p></form><button class="text-button auth-mode" id="authMode" type="button">New to RADAR? Create an account</button><p class="auth-foot">Your password is handled securely by Supabase Auth.</p>
+    </div>
+  </section>
+  <div class="app-shell hidden">
+    <header class="topbar">
+      <a class="brand" href="#dashboard" aria-label="RADAR dashboard">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span><strong>RADAR</strong><small>ACADEMIC COMMAND CENTER</small></span>
+      </a>
+      <div class="student-identities" aria-label="Student team">
+        <div class="student-identity"><span class="identity-label">STUDENT PROFILE</span><strong>Mayank Kumar</strong><span>26U010137 <i>·</i> FoCP (CSE-1003)</span></div>
+        <span class="identity-divider" aria-hidden="true"></span>
+        <div class="student-identity"><span class="identity-label">STUDENT PROFILE</span><strong>Rohit Nagraj</strong><span>26U010143</span></div>
+      </div>
+      <div class="topbar-actions">
+        <span class="signed-in-email" id="signedInEmail"></span><button class="secondary-button signout-button" id="signOutButton" type="button">Sign out</button>
+        <span class="live-indicator"><i></i> LIVE RADAR</span>
+        <button class="icon-button" id="themeToggle" type="button" aria-label="Switch to light theme" title="Switch theme"><span id="themeIcon">☼</span></button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="sidebar" aria-label="Main navigation">
+        <div class="nav-group">
+          <span class="nav-caption">WORKSPACE</span>
+          <button class="nav-item active" data-view="dashboard" type="button"><span class="nav-icon">⌂</span>Overview</button>
+          <button class="nav-item" data-view="subjects" type="button"><span class="nav-icon">◫</span>Subjects <span class="nav-count">05</span></button>
+        </div>
+        <div class="nav-group">
+          <span class="nav-caption">DEADLINE TRACKER</span>
+          <button class="nav-item" data-view="projects" type="button"><span class="nav-icon">◇</span>Projects</button>
+          <button class="nav-item" data-view="viva" type="button"><span class="nav-icon">◉</span>Viva</button>
+          <button class="nav-item" data-view="assignments" type="button"><span class="nav-icon">▤</span>Assignments</button>
+          <button class="nav-item" data-view="exams" type="button"><span class="nav-icon">▦</span>Exams <span class="nav-tag">SOON</span></button>
+        </div>
+        <div class="sidebar-bottom">
+          <div class="semester-card"><span class="semester-dot"></span><div><strong>Semester I</strong><small>DEADLINE RADAR ACTIVE</small></div></div>
+          <div class="sidebar-foot">LOCAL STORAGE <span>● ENCRYPTED</span></div>
+        </div>
+      </aside>
+
+      <main id="mainContent" class="main-content">
+        <section class="view-panel" id="dashboardView">
+          <div class="page-heading">
+            <div><div class="eyebrow"><span class="eyebrow-line"></span> YOUR ACADEMIC OVERVIEW</div><h1>Stay ahead of <em>every deadline.</em></h1><p class="page-subtitle">One clear view of what’s next. Keep your focus where it matters.</p></div><div class="heading-actions"><button class="primary-button" id="dashboardAddButton" type="button"><span>＋</span> Add task</button>
+            <div class="date-chip"><span class="date-icon">◷</span><span id="todayLabel">TODAY</span></div>
+          </div></div>
+
+          <section class="stats-grid" aria-label="Deadline summary">
+            <article class="stat-card"><div class="stat-top"><span class="stat-label">ACTIVE DEADLINES</span><span class="stat-icon blue">↗</span></div><div class="stat-value" id="activeCount">0</div><div class="stat-foot"><span class="status-dot blue-dot"></span>On your radar</div></article>
+            <article class="stat-card"><div class="stat-top"><span class="stat-label">RADAR ALERTS</span><span class="stat-icon amber">◎</span></div><div class="stat-value" id="alertCount">0</div><div class="stat-foot"><span class="status-dot amber-dot"></span>Due within 48 hours</div></article>
+            <article class="stat-card"><div class="stat-top"><span class="stat-label">COMPLETED</span><span class="stat-icon green">✓</span></div><div class="stat-value" id="completedCount">0</div><div class="stat-foot"><span class="status-dot green-dot"></span>Tasks checked off</div></article>
+            <article class="stat-card progress-card"><div class="stat-top"><span class="stat-label">SEMESTER PROGRESS</span><span class="progress-percent" id="progressPercent">0%</span></div><div class="progress-track"><span id="progressBar"></span></div><div class="stat-foot" id="progressCaption">0 of 0 tasks completed</div></article>
+          </section>
+
+          <section class="subject-strip" aria-label="Your subjects"><div class="section-title-row"><div><span class="eyebrow">YOUR COURSE LOAD</span><h2>Five subjects. One radar.</h2></div><button type="button" class="text-button" data-open-view="subjects">View subjects <span>↗</span></button></div><div class="subject-chips" id="subjectChips"></div></section>
+
+          <section class="quick-add" aria-labelledby="quickAddTitle"><div class="quick-add-heading"><div><span class="eyebrow">QUICK CAPTURE</span><h2 id="quickAddTitle">＋ Add new deadline</h2></div><span class="saved-label"><i></i> Saved automatically to this device</span></div>
+            <form class="quick-add-form" id="quickAddForm">
+              <label class="quick-field title-field"><span class="sr-only">Task title</span><input name="title" type="text" maxlength="120" placeholder="Task title (e.g., Pointers &amp; Arrays Lab Submission)" required></label>
+              <label class="quick-field"><span class="sr-only">Subject</span><select name="subject" required><option value="Fundamentals of Computer Programming (FoCP)">FoCP (CSE-1003)</option><option value="Discrete Mathematics">Discrete Mathematics</option><option value="Engineering Mathematics">Engineering Mathematics</option><option value="Fundamentals of Electrical Engineering (FoEE)">FoEE</option><option value="Professional Communication">Professional Communication</option></select></label>
+              <label class="quick-field category-field"><span class="sr-only">Deadline type</span><select name="category"><option value="assignments">Assignment</option><option value="projects">Project</option><option value="viva">Viva</option></select></label>
+              <label class="quick-field date-field"><span class="sr-only">Due date and time</span><input name="due" id="quickDue" type="datetime-local" required></label>
+              <label class="quick-field link-field"><span class="sr-only">Submission link (optional)</span><input name="link" type="text" inputmode="url" placeholder="Submission link (optional)"></label>
+              <button class="primary-button quick-submit" type="submit">Add to Radar</button>
+            </form>
+          </section>
+
+          <section class="deadlines-section">
+            <div class="section-title-row deadline-heading"><div><span class="eyebrow">DEADLINE TRACKER</span><h2 id="listTitle">Upcoming deadlines</h2></div><button type="button" class="secondary-button" id="resetDemo"><span>↺</span> Reset demo</button></div>
+            <div class="filter-row" role="group" aria-label="Filter deadlines"><div class="filter-pills"><button class="filter-pill active" data-filter="all" type="button">All <span id="filterAll">0</span></button><button class="filter-pill" data-filter="critical" type="button">Critical <span id="filterCritical">0</span></button><button class="filter-pill" data-filter="approaching" type="button">Approaching <span id="filterApproaching">0</span></button><button class="filter-pill" data-filter="safe" type="button">Safe <span id="filterSafe">0</span></button><button class="filter-pill" data-filter="completed" type="button">Completed <span id="filterCompleted">0</span></button></div><label class="search-box"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Search deadlines..." aria-label="Search deadlines"><kbd>⌘ K</kbd></label></div>
+            <div class="task-list" id="taskList" aria-live="polite"></div>
+            <div class="empty-state hidden" id="emptyState"><span class="empty-symbol">◌</span><strong>No deadlines found</strong><span>Try another filter or add a new deadline.</span></div>
+          </section>
+        </section>
+
+        <section class="view-panel hidden" id="subjectsView">
+          <div class="page-heading compact-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> COURSE LOAD</div><h1>Your <em>subjects.</em></h1><p class="page-subtitle">Five courses, organized in one place.</p></div></div>
+          <div class="subject-page-grid" id="subjectPageGrid"></div>
+          <section class="subject-task-detail hidden" id="subjectTaskDetail" aria-live="polite"><div class="section-title-row"><div><span class="eyebrow">SUBJECT TASKS</span><h2 id="subjectTaskHeading">Tasks</h2></div><button type="button" class="text-button" id="clearSubjectSelection">← All subjects</button></div><div class="task-list" id="subjectTaskList"></div><div class="empty-state hidden" id="subjectTaskEmpty"><span class="empty-symbol">◌</span><strong>No tasks for this subject yet</strong><span>Add a task and choose this subject to see it here.</span></div></section>
+        </section>
+
+        <section class="view-panel hidden" id="categoryView">
+          <div class="page-heading compact-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> DEADLINE TRACKER</div><h1 id="categoryTitle">Projects</h1><p class="page-subtitle" id="categorySubtitle">Track your upcoming work.</p></div><button class="primary-button" id="categoryAddButton" type="button"><span>＋</span> Add deadline</button></div>
+          <div class="category-summary"><span class="category-symbol" id="categorySymbol">◇</span><div><strong id="categorySummaryTitle">Projects radar</strong><span id="categorySummaryText">Your project deadlines will appear here.</span></div><span class="category-total" id="categoryTotal">0 TRACKED</span></div>
+          <div class="filter-row category-filter-row"><div class="filter-pills"><button class="filter-pill active" data-filter="all" type="button">All <span id="categoryAll">0</span></button><button class="filter-pill" data-filter="critical" type="button">Critical <span id="categoryCritical">0</span></button><button class="filter-pill" data-filter="approaching" type="button">Approaching <span id="categoryApproaching">0</span></button><button class="filter-pill" data-filter="safe" type="button">Safe <span id="categorySafe">0</span></button><button class="filter-pill" data-filter="completed" type="button">Completed <span id="categoryCompleted">0</span></button></div><label class="search-box"><span aria-hidden="true">⌕</span><input id="categorySearch" type="search" placeholder="Search deadlines..." aria-label="Search deadlines"></label></div>
+          <div class="task-list" id="categoryTaskList" aria-live="polite"></div>
+          <div class="empty-state hidden" id="categoryEmpty"><span class="empty-symbol">◌</span><strong>No deadlines here yet</strong><span>Add the first one whenever you’re ready.</span></div>
+        </section>
+
+        <section class="view-panel hidden" id="examsView">
+          <div class="page-heading compact-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> EXAM RADAR</div><h1>Exam <em>timetable.</em></h1><p class="page-subtitle">Build your schedule one exam at a time. Your timetable stays saved on this device.</p></div><button class="primary-button" id="addExamButton" type="button"><span>＋</span> Add exam</button></div>
+          <div class="exam-summary"><div class="exam-summary-icon">▦</div><div><strong>Your exam schedule</strong><span id="examSummaryText">Add your first exam to start building the timetable.</span></div><span class="category-total" id="examTotal">00 EXAMS</span></div>
+          <div class="exam-list" id="examList" aria-live="polite"></div>
+          <div class="exam-empty" id="examEmpty"><span class="exam-orbit"><span class="orbit-ring ring-one"></span><span class="orbit-ring ring-two"></span><span class="orbit-center">✳</span></span><strong>Your exam radar is standing by.</strong><span>Add the dates and times from your timetable to see them organized here.</span><button class="secondary-button" id="emptyAddExam" type="button">＋ Add your first exam</button></div>
+        </section>
+      </main>
+    </div>
+    <footer class="app-footer"><span>RADAR <i>·</i> YOUR ACADEMIC COMMAND CENTER</span><span>BUILT FOR FOCUS <b>✳</b></span></footer>
+  </div>
+
+  <div class="modal-backdrop hidden" id="taskModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <form class="task-form" id="taskForm"><div class="modal-heading"><div><span class="eyebrow">DEADLINE DETAILS</span><h2 id="modalTitle">Add a deadline</h2></div><button class="icon-button close-modal" id="closeModal" type="button" aria-label="Close dialog">×</button></div>
+      <label class="field-label">Task title <span>*</span><input name="title" id="taskTitle" type="text" maxlength="120" placeholder="e.g. Pointers lab submission" required></label>
+      <div class="form-row"><label class="field-label">Subject / course<select name="subject" id="taskSubject" required><option value="Fundamentals of Computer Programming (FoCP)">Fundamentals of Computer Programming (FoCP)</option><option value="Discrete Mathematics">Discrete Mathematics</option><option value="Engineering Mathematics">Engineering Mathematics</option><option value="Fundamentals of Electrical Engineering (FoEE)">Fundamentals of Electrical Engineering (FoEE)</option><option value="Professional Communication">Professional Communication</option></select></label><label class="field-label">Deadline type<select name="category" id="taskCategory"><option value="projects">Project</option><option value="viva">Viva</option><option value="assignments">Assignment</option></select></label></div>
+      <label class="field-label">Due date &amp; time<input name="due" id="taskDue" type="datetime-local" required></label>
+      <label class="field-label">Submission link <span class="optional">OPTIONAL</span><input name="link" id="taskLink" type="text" inputmode="url" placeholder="classroom.google.com/…"></label>
+      <div class="form-actions"><button class="secondary-button" id="cancelModal" type="button">Cancel</button><button class="primary-button" type="submit">Save deadline <span>↗</span></button></div>
+    </form>
+  </div>
+  <div class="modal-backdrop hidden" id="examModal" role="dialog" aria-modal="true" aria-labelledby="examModalTitle">
+    <form class="task-form" id="examForm"><div class="modal-heading"><div><span class="eyebrow">EXAM TIMETABLE</span><h2 id="examModalTitle">Add an exam</h2></div><button class="icon-button close-modal" id="closeExamModal" type="button" aria-label="Close dialog">×</button></div>
+      <label class="field-label">Exam / paper name <span>*</span><input name="title" id="examTitle" type="text" maxlength="120" placeholder="e.g. End semester examination" required></label>
+      <label class="field-label">Subject <select name="subject" id="examSubject" required></select></label>
+      <div class="form-row"><label class="field-label">Exam date &amp; time<input name="date" id="examDate" type="datetime-local" required></label><label class="field-label">Duration<select name="duration" id="examDuration"><option value="1 hour">1 hour</option><option value="1.5 hours">1.5 hours</option><option value="2 hours" selected>2 hours</option><option value="2.5 hours">2.5 hours</option><option value="3 hours">3 hours</option><option value="Other">Other / not set</option></select></label></div>
+      <div class="form-row"><label class="field-label">Room / venue<input name="venue" id="examVenue" type="text" maxlength="100" placeholder="e.g. Block A · Room 204"></label><label class="field-label">Reporting time<input name="reporting" id="examReporting" type="time"></label></div>
+      <label class="field-label">Notes <span class="optional">OPTIONAL</span><input name="notes" id="examNotes" type="text" maxlength="180" placeholder="Bring your hall ticket…"></label>
+      <div class="form-actions"><button class="secondary-button" id="cancelExamModal" type="button">Cancel</button><button class="primary-button" type="submit">Save exam <span>↗</span></button></div>
+    </form>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="script.js"></script>
+</body>
+</html>
