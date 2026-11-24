@@ -9,6 +9,7 @@ RADAR helps students organize coursework deadlines and exam dates, see what need
 - Add project, viva, and assignment deadlines, grouped by subject.
 - Add and manage an exam timetable with date, time, duration, venue, and notes.
 - See live countdowns and urgency labels for upcoming deadlines.
+- Receive browser notifications when a deadline changes from Safe to Approaching or from Approaching to Critical. See [notification details](NOTIFICATIONS.md).
 - Filter and search tasks, mark them complete, and copy formatted reminders.
 - Browse tasks by subject.
 - Sign in with email and password; tasks and exams are stored in Supabase and associated with the signed-in account.
@@ -38,6 +39,10 @@ RADAR helps students organize coursework deadlines and exam dates, see what need
 - Supabase Auth for account sign-in
 - Supabase Postgres for tasks and exams
 - GitHub Pages for static hosting
+
+## Deadline notifications
+
+Notifications are opt-in and require browser permission on each device. The app checks active deadlines while it is open and alerts at the 48-hour and 24-hour urgency thresholds. Background notifications while RADAR is closed are not enabled.
 
 ## Run locally
 
