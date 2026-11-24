@@ -16,13 +16,6 @@ RADAR helps students organize coursework deadlines and exam dates, see what need
 - Use dark or light theme, with the preference saved in the browser.
 - Responsive layout for laptop and phone screens.
 
-## Subjects
-
-- Discrete Mathematics
-- Engineering Mathematics
-- Fundamentals of Computer Programming (FoCP)
-- Fundamentals of Electrical Engineering (FoEE)
-- Professional Communication
 
 ## Project team
 
