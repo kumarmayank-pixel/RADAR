@@ -24,6 +24,8 @@
   let exams = [];
   let currentUser = null;
   let authMode = 'login';
+  let lastUrgencyById = new Map();
+  let notificationsEnabled = localStorage.getItem('radar.notifications.enabled') === 'true';
   let activeView = 'dashboard';
   let selectedSubject = '';
   let activeFilter = 'all';
@@ -95,6 +97,24 @@
     if (remaining < 24 * 3600000) return 'critical';
     if (remaining <= 48 * 3600000) return 'approaching';
     return 'safe';
+  }
+  function notifyUrgencyChanges() {
+    const current = new Map();
+    tasks.forEach(task => {
+      const urgency = getUrgency(task);
+      current.set(task.id, urgency);
+      const previous = lastUrgencyById.get(task.id);
+      if (!notificationsEnabled || !('Notification' in window) || Notification.permission !== 'granted' || task.completed || !previous) return;
+      const title = previous === 'safe' && urgency === 'approaching' ? 'Deadline approaching (<48 hours)' : previous === 'approaching' && urgency === 'critical' ? 'Critical deadline (<24 hours)' : '';
+      if (title) new Notification(title, { body: `${task.title} · ${task.subject}`, tag: `radar-${task.id}-${urgency}` });
+    });
+    lastUrgencyById = current;
+  }
+  function updateNotificationButton() {
+    const enabled = notificationsEnabled && 'Notification' in window && Notification.permission === 'granted';
+    const button = $('#notificationToggle');
+    button.setAttribute('aria-pressed', String(enabled));
+    button.textContent = enabled ? '♧ Alerts on' : '♧ Enable alerts';
   }
   function formatCountdown(due) {
     let seconds = Math.floor((Number(due) - Date.now()) / 1000);
@@ -223,7 +243,7 @@
     if (view === 'exams') renderExams();
     $('#mainContent').scrollTop = 0;
   }
-  function renderAll() { renderDashboard(); if (activeView === 'subjects') renderSubjects(); if (['projects', 'viva', 'assignments'].includes(activeView)) renderCategory(); if (activeView === 'exams') renderExams(); }
+  function renderAll() { notifyUrgencyChanges(); renderDashboard(); if (activeView === 'subjects') renderSubjects(); if (['projects', 'viva', 'assignments'].includes(activeView)) renderCategory(); if (activeView === 'exams') renderExams(); }
   function showToast(message) {
     const toast = $('#toast'); toast.textContent = message; toast.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
@@ -354,6 +374,7 @@
   $('#themeToggle').addEventListener('click', () => setTheme(document.body.classList.contains('light-theme') ? 'dark' : 'light'));
   const savedTheme = localStorage.getItem(THEME_KEY);
   setTheme(savedTheme === 'light' ? 'light' : 'dark');
+  updateNotificationButton();
   setQuickDueDefault();
   function setAuthFeedback(message, isError = false) { const node = $('#authFeedback'); node.textContent = message; node.classList.toggle('error', isError); }
   function toggleAuthMode() {
@@ -370,6 +391,7 @@
     ]);
     if (taskError || examError) throw taskError || examError;
     tasks = (taskRows || []).map(row => ({ id: row.id, title: row.title, subject: row.subject, category: row.category, due: new Date(row.due_at).getTime(), link: row.submission_link || '', completed: row.completed }));
+    lastUrgencyById = new Map(tasks.map(task => [task.id, getUrgency(task)]));
     exams = (examRows || []).map(row => ({ id: row.id, title: row.title, subject: row.subject, date: new Date(row.exam_at).getTime(), duration: row.duration || '', venue: row.venue || '', reporting: row.reporting_time || '', notes: row.notes || '' }));
     const migrationKey = `radar.migrated.${currentUser.id}`;
     if (!tasks.length && !localStorage.getItem(migrationKey)) { tasks = loadTasks(); await saveTasks(); }
@@ -402,6 +424,16 @@
     if (result.data.session) await activateSession(result.data.session);
   });
   $('#signOutButton').addEventListener('click', async () => { await cloud.auth.signOut(); tasks = []; exams = []; currentUser = null; $('.app-shell').classList.add('hidden'); $('#authScreen').classList.remove('hidden'); });
+  $('#notificationToggle').addEventListener('click', async () => {
+    if (!('Notification' in window)) { showToast('This browser does not support notifications'); return; }
+    if (!window.isSecureContext) { showToast('Notifications require HTTPS; use the published RADAR site'); return; }
+    if (Notification.permission === 'denied') { showToast('Notifications are blocked in this browser site settings'); return; }
+    const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    notificationsEnabled = permission === 'granted';
+    localStorage.setItem('radar.notifications.enabled', String(notificationsEnabled));
+    updateNotificationButton();
+    showToast(notificationsEnabled ? 'Deadline alerts enabled on this device' : 'Notification permission was not granted');
+  });
   cloud.auth.onAuthStateChange((_event, session) => { if (session?.user?.id !== currentUser?.id) setTimeout(() => activateSession(session), 0); });
   cloud.auth.getSession().then(({ data, error }) => error ? setAuthFeedback(error.message, true) : activateSession(data.session));
   setInterval(() => { if (currentUser) renderAll(); }, 1000);
