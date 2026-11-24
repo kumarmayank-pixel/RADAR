@@ -25,4 +25,4 @@ with check (user_id = (select auth.uid()));
 grant select, insert, update, delete on public.subjects to authenticated;
 ```
 
-The app saves custom subject rows in Supabase, so they follow the signed-in user across devices. Custom task types are stored in the existing `tasks.category` text column with a `custom:` prefix; the migration removes the old built-in-only category constraint.
+The app saves custom subject rows in Supabase, so they follow the signed-in user across devices. Add subjects from the subject list or directly from a task/exam subject dropdown. Edit a subject from its card; existing tasks and exams are updated to use the new name. Custom task types are stored in the existing `tasks.category` text column with a `custom:` prefix; the migration removes the old built-in-only category restriction.

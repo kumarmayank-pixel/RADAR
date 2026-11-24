@@ -191,7 +191,7 @@
     $('#subjectPageGrid').innerHTML = subjects.map((subject, index) => {
       const subjectTasks = tasks.filter(task => task.subject === subject.name);
       const pending = subjectTasks.filter(task => !task.completed).length;
-      return `<button class="subject-page-card" type="button" data-subject="${escapeHTML(subject.name)}" aria-label="Show tasks for ${escapeHTML(subject.name)}"><span class="subject-page-card-top"><span><span class="subject-index">0${index + 1} / COURSE</span><span class="subject-name">${escapeHTML(subject.name)}</span><span class="subject-code">${escapeHTML(subject.code)}</span></span><span class="subject-index">${String(subjectTasks.length).padStart(2, '0')} <span aria-hidden="true">↗</span></span></span><span class="subject-task-count"><strong>${pending}</strong> active deadline${pending === 1 ? '' : 's'} · ${subjectTasks.length - pending} completed</span></button>`;
+      return `<article class="subject-page-card"><button class="subject-card-main" type="button" data-subject="${escapeHTML(subject.name)}" aria-label="Show tasks for ${escapeHTML(subject.name)}"><span class="subject-page-card-top"><span><span class="subject-index">0${index + 1} / COURSE</span><span class="subject-name">${escapeHTML(subject.name)}</span><span class="subject-code">${escapeHTML(subject.code)}</span></span><span class="subject-index">${String(subjectTasks.length).padStart(2, '0')}</span></span><span class="subject-task-count"><strong>${pending}</strong> active deadline${pending === 1 ? '' : 's'} · ${subjectTasks.length - pending} completed</span></button><button class="subject-card-edit" type="button" data-edit-subject="${escapeHTML(subject.name)}" aria-label="Edit ${escapeHTML(subject.name)}" title="Edit subject">✎</button></article>`;
     }).join('');
     renderSubjectTasks();
   }
@@ -210,6 +210,19 @@
     setView('subjects');
     renderSubjectTasks();
     $('#subjectTaskDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  async function editSubjectByName(subjectName) {
+    const subject = subjects.find(item => item.name === subjectName); if (!subject) return;
+    const name = prompt('Edit subject name:', subject.name)?.trim(); if (!name || name === subject.name) return;
+    if (subjects.some(item => item !== subject && item.name.toLowerCase() === name.toLowerCase())) { showToast('A subject with that name already exists'); return; }
+    const code = prompt('Edit subject code:', subject.code || '')?.trim() ?? subject.code;
+    const { error } = await cloud.from('subjects').update({ name: name.slice(0, 100), code: code.slice(0, 60) }).eq('id', subject.id);
+    if (error) { showToast(`Could not edit subject: ${error.message}`); return; }
+    const oldName = subject.name; subject.name = name; subject.code = code;
+    tasks.forEach(task => { if (task.subject === oldName) task.subject = name; });
+    exams.forEach(exam => { if (exam.subject === oldName) exam.subject = name; });
+    if (selectedSubject === oldName) selectedSubject = name;
+    await Promise.all([saveTasks(), saveExams()]); refreshSubjectOptions(); renderAll(); showToast('Subject updated');
   }
   function renderCategory() {
     const type = activeView;
@@ -352,7 +365,11 @@
   $('#categorySearch').addEventListener('input', renderCategory);
   attachFilterButtons('#dashboardView .filter-pill', () => activeFilter, value => { activeFilter = value; });
   attachFilterButtons('#categoryView .filter-pill', () => categoryFilter, value => { categoryFilter = value; });
-  $('#subjectPageGrid').addEventListener('click', event => { const button = event.target.closest('[data-subject]'); if (button) openSubject(button.dataset.subject); });
+  $('#subjectPageGrid').addEventListener('click', event => {
+    const editButton = event.target.closest('[data-edit-subject]');
+    if (editButton) { event.stopPropagation(); editSubjectByName(editButton.dataset.editSubject); return; }
+    const button = event.target.closest('[data-subject]'); if (button) openSubject(button.dataset.subject);
+  });
   $('#subjectChips').addEventListener('click', event => { const button = event.target.closest('[data-subject]'); if (button) openSubject(button.dataset.subject); });
   $('#clearSubjectSelection').addEventListener('click', () => { selectedSubject = ''; renderSubjectTasks(); $('#subjectPageGrid').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   $('#taskList').addEventListener('click', handleCardAction);
@@ -376,18 +393,6 @@
     const added = await addSubjectFromPrompt();
     event.target.value = added?.name || subjects[0]?.name || '';
   }));
-  $('#editSubjectButton').addEventListener('click', async () => {
-    const subject = subjects.find(item => item.name === selectedSubject); if (!subject) return;
-    const name = prompt('Edit subject name:', subject.name)?.trim(); if (!name || name === subject.name) return;
-    if (subjects.some(item => item !== subject && item.name.toLowerCase() === name.toLowerCase())) { showToast('A subject with that name already exists'); return; }
-    const code = prompt('Edit subject code:', subject.code || '')?.trim() ?? subject.code;
-    const { error } = await cloud.from('subjects').update({ name: name.slice(0, 100), code: code.slice(0, 60) }).eq('id', subject.id);
-    if (error) { showToast(`Could not edit subject: ${error.message}`); return; }
-    const oldName = subject.name; subject.name = name; subject.code = code;
-    tasks.forEach(task => { if (task.subject === oldName) task.subject = name; });
-    exams.forEach(exam => { if (exam.subject === oldName) exam.subject = name; });
-    selectedSubject = name; await Promise.all([saveTasks(), saveExams()]); refreshSubjectOptions(); renderAll(); showToast('Subject updated');
-  });
   const examSubjectSelect = $('#examSubject');
   examSubjectSelect.innerHTML = '<option value="">Choose a subject</option>' + subjects.map(subject => `<option value="${escapeHTML(subject.name)}">${escapeHTML(subject.name)}</option>`).join('');
   $('#addExamButton').addEventListener('click', openExamModal);

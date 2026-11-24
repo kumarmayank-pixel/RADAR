@@ -13,6 +13,8 @@ RADAR helps students organize coursework deadlines and exam dates, see what need
 - Filter and search tasks, mark them complete, and copy formatted reminders.
 - Browse tasks by subject.
 - Add account-specific subjects and custom deadline types such as quizzes or presentations.
+- Edit a subject from its card or adjust a task’s title, subject, type, due date, or link.
+- Add a subject directly from the task or exam subject dropdown.
 - Sign in with email and password; tasks and exams are stored in Supabase and associated with the signed-in account.
 - Use dark or light theme, with the preference saved in the browser.
 - Responsive layout for laptop and phone screens.
