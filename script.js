@@ -25,6 +25,7 @@
   let exams = [];
   let currentUser = null;
   let authMode = 'login';
+  let sessionActivation = null;
   let lastUrgencyById = new Map();
   let notificationsEnabled = localStorage.getItem('radar.notifications.enabled') === 'true';
   let activeView = 'dashboard';
@@ -475,26 +476,35 @@
     renderAll();
   }
   async function activateSession(session) {
-    currentUser = session?.user || null;
-    if (!currentUser) { $('.app-shell').classList.add('hidden'); $('#authScreen').classList.remove('hidden'); return; }
-    setAuthFeedback('Loading your cloud data…');
-    try { await loadCloudData(); } catch (error) { currentUser = null; setAuthFeedback(`Could not load RADAR data: ${error.message}`, true); }
+    const user = session?.user || null;
+    currentUser = user;
+    if (!user) { sessionActivation = null; $('.app-shell').classList.add('hidden'); $('#authScreen').classList.remove('hidden'); return; }
+    if (sessionActivation?.userId === user.id) return sessionActivation.promise;
+    const promise = (async () => {
+      setAuthFeedback('Loading your cloud data…');
+      try { await loadCloudData(); } catch (error) { currentUser = null; setAuthFeedback(`Could not load RADAR data: ${error.message}`, true); }
+    })();
+    sessionActivation = { userId: user.id, promise };
+    try { await promise; } finally { if (sessionActivation?.promise === promise) sessionActivation = null; }
   }
   $('#authMode').addEventListener('click', toggleAuthMode);
   $('#authForm').addEventListener('submit', async event => {
     event.preventDefault(); const button = $('#authSubmit'); button.disabled = true; setAuthFeedback('Connecting securely…');
     const email = $('#authEmail').value.trim(); const password = $('#authPassword').value;
-    const result = authMode === 'login' ? await cloud.auth.signInWithPassword({ email, password }) : await cloud.auth.signUp({ email, password });
-    button.disabled = false;
-    if (result.error) {
-      const rateLimited = result.error.status === 429 || /rate limit|too many requests/i.test(result.error.message || '');
-      setAuthFeedback(rateLimited && authMode === 'signup'
-        ? 'Supabase email limit reached (2 emails/hour on the built-in sender). Wait, or turn off email confirmation in Supabase Auth settings.'
-        : result.error.message, true);
-      return;
-    }
-    if (authMode === 'signup' && !result.data.session) { setAuthFeedback('Account created. Check your email to confirm, then sign in.'); return; }
-    if (result.data.session) await activateSession(result.data.session);
+    try {
+      const result = authMode === 'login' ? await cloud.auth.signInWithPassword({ email, password }) : await cloud.auth.signUp({ email, password });
+      if (result.error) {
+        const rateLimited = result.error.status === 429 || /rate limit|too many requests/i.test(result.error.message || '');
+        setAuthFeedback(rateLimited && authMode === 'signup'
+          ? 'Supabase email limit reached (2 emails/hour on the built-in sender). Wait, or turn off email confirmation in Supabase Auth settings.'
+          : result.error.message, true);
+        return;
+      }
+      if (authMode === 'signup' && !result.data.session) { setAuthFeedback('Account created. Check your email to confirm, then sign in.'); return; }
+      if (result.data.session) await activateSession(result.data.session);
+    } catch (error) {
+      setAuthFeedback(`Could not connect to RADAR: ${error.message || 'Please check your connection and try again.'}`, true);
+    } finally { button.disabled = false; }
   });
   $('#signOutButton').addEventListener('click', async () => { await cloud.auth.signOut(); tasks = []; exams = []; currentUser = null; $('.app-shell').classList.add('hidden'); $('#authScreen').classList.remove('hidden'); });
   $('#notificationToggle').addEventListener('click', async () => {
@@ -508,6 +518,6 @@
     showToast(notificationsEnabled ? 'Deadline alerts enabled on this device' : 'Notification permission was not granted');
   });
   cloud.auth.onAuthStateChange((_event, session) => { if (session?.user?.id !== currentUser?.id) setTimeout(() => activateSession(session), 0); });
-  cloud.auth.getSession().then(({ data, error }) => error ? setAuthFeedback(error.message, true) : activateSession(data.session));
+  cloud.auth.getSession().then(({ data, error }) => error ? setAuthFeedback(error.message, true) : activateSession(data.session)).catch(error => setAuthFeedback(`Could not restore your RADAR session: ${error.message || 'Please refresh and try again.'}`, true));
   setInterval(() => { if (currentUser) renderAll(); }, 1000);
 })();
