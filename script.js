@@ -391,7 +391,13 @@
     const email = $('#authEmail').value.trim(); const password = $('#authPassword').value;
     const result = authMode === 'login' ? await cloud.auth.signInWithPassword({ email, password }) : await cloud.auth.signUp({ email, password });
     button.disabled = false;
-    if (result.error) { setAuthFeedback(result.error.message, true); return; }
+    if (result.error) {
+      const rateLimited = result.error.status === 429 || /rate limit|too many requests/i.test(result.error.message || '');
+      setAuthFeedback(rateLimited && authMode === 'signup'
+        ? 'Supabase email limit reached (2 emails/hour on the built-in sender). Wait, or turn off email confirmation in Supabase Auth settings.'
+        : result.error.message, true);
+      return;
+    }
     if (authMode === 'signup' && !result.data.session) { setAuthFeedback('Account created. Check your email to confirm, then sign in.'); return; }
     if (result.data.session) await activateSession(result.data.session);
   });
