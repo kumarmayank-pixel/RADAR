@@ -15,4 +15,4 @@ Permission and the alert preference are stored per browser/device, so enable ale
 
 Tasks that are already Approaching or Critical when RADAR first loads do not generate a catch-up alert. Completed tasks do not generate urgency notifications.
 
-The feature was developed on [`feature/deadline-urgency-notifications`](https://github.com/kumarmayank-pixel/RADAR/tree/feature/deadline-urgency-notifications) and merged into `main`.
+The notification feature is included in the current `main` branch.

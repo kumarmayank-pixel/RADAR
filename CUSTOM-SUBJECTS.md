@@ -1,6 +1,6 @@
-# Custom subjects and deadline types
+# Custom subjects and deadline types: database upgrade
 
-This feature branch adds account-specific subjects and lets a task use a custom type such as Quiz, Presentation, or Competition. Before running this branch, run the following migration in the Supabase SQL Editor. It preserves existing tasks and the existing five subjects.
+RADAR now supports account-specific subjects and custom task types such as Quiz, Presentation, or Competition. If your database already has the `subjects` table and its RLS policy, this migration has already been applied and no further database changes are needed. For older databases, run it once in the Supabase SQL Editor. It preserves existing tasks and removes the built-in-only task category restriction.
 
 ```sql
 alter table public.tasks drop constraint if exists tasks_category_check;

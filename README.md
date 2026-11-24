@@ -17,6 +17,14 @@ RADAR helps students organize coursework deadlines and exam dates, see what need
 - Use dark or light theme, with the preference saved in the browser.
 - Responsive layout for laptop and phone screens.
 
+## Subjects
+
+- Discrete Mathematics
+- Engineering Mathematics
+- Fundamentals of Computer Programming (FoCP)
+- Fundamentals of Electrical Engineering (FoEE)
+- Professional Communication
+
 
 ## Project team
 
@@ -58,7 +66,7 @@ create table public.tasks (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   title text not null,
   subject text not null,
-  category text not null check (category in ('projects', 'viva', 'assignments')),
+  category text not null,
   due_at timestamptz not null,
   submission_link text,
   completed boolean not null default false,
@@ -78,8 +86,18 @@ create table public.exams (
   created_at timestamptz not null default now()
 );
 
+create table public.subjects (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  name text not null,
+  code text,
+  created_at timestamptz not null default now(),
+  constraint subjects_user_name_unique unique (user_id, name)
+);
+
 alter table public.tasks enable row level security;
 alter table public.exams enable row level security;
+alter table public.subjects enable row level security;
 
 create policy "Users manage their own tasks"
 on public.tasks for all to authenticated
@@ -91,14 +109,19 @@ on public.exams for all to authenticated
 using (user_id = (select auth.uid()))
 with check (user_id = (select auth.uid()));
 
-grant select, insert, update, delete on public.tasks, public.exams to authenticated;
+create policy "Users manage their own subjects"
+on public.subjects for all to authenticated
+using (user_id = (select auth.uid()))
+with check (user_id = (select auth.uid()));
+
+grant select, insert, update, delete on public.tasks, public.exams, public.subjects to authenticated;
 ```
 
 In Supabase **Authentication → Sign In / Providers**, enable email/password sign-in. Email confirmation can be enabled or disabled. With confirmation enabled, configure a custom SMTP provider before inviting many users; the built-in email sender has strict limits.
 
 Each account has its own tasks and exams. Signing in with the same account on multiple devices syncs that account's records. Separate accounts do not share data unless workspace sharing is added.
 
-For the custom-subjects feature branch, run the additional migration in [CUSTOM-SUBJECTS.md](CUSTOM-SUBJECTS.md) before using the new subject editor or custom deadline types.
+If your existing database was created before custom subjects were added, run the upgrade migration in [CUSTOM-SUBJECTS.md](CUSTOM-SUBJECTS.md). New installations can use the full schema above.
 
 ## Deploy with GitHub Pages
 
