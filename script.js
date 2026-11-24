@@ -6,13 +6,14 @@
   const SUPABASE_URL = 'https://amxusqkdgleqczfvifvq.supabase.co';
   const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_0dw1xYjREqCTRGhGOxqXGQ_NzwDwVUY';
   const cloud = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-  const subjects = [
+  const defaultSubjects = [
     { name: 'Discrete Mathematics', code: 'MTH · DISCRETE', color: 'violet' },
     { name: 'Engineering Mathematics', code: 'MTH · ENGINEERING', color: 'blue' },
     { name: 'Fundamentals of Computer Programming (FoCP)', code: 'CSE-1003 · FoCP', color: 'mint' },
     { name: 'Fundamentals of Electrical Engineering (FoEE)', code: 'EEE · FOEE', color: 'amber' },
     { name: 'Professional Communication', code: 'HUM · COMMUNICATION', color: 'rose' }
   ];
+  let subjects = [...defaultSubjects];
   const categoryNames = { projects: 'Projects', viva: 'Viva', assignments: 'Assignments' };
   const categoryDescriptions = {
     projects: 'Keep long-form work moving and milestones in sight.',
@@ -139,7 +140,7 @@
     const urgency = getUrgency(task);
     const subject = escapeHTML(task.subject);
     const title = escapeHTML(task.title);
-    const category = categoryNames[task.category] || 'Assignment';
+    const category = categoryNames[task.category] || (String(task.category).startsWith('custom:') ? String(task.category).slice(7) : String(task.category));
     const completed = urgency === 'completed';
     const statusLabel = { critical: 'CRITICAL · <24H', approaching: 'APPROACHING', safe: 'SAFE ZONE', completed: 'COMPLETED' }[urgency];
     const validLink = safeURL(task.link);
@@ -175,6 +176,15 @@
     $('#emptyState').classList.toggle('hidden', visible.length > 0);
     $('#subjectChips').innerHTML = subjects.map(item => `<button class="subject-chip" type="button" data-subject="${escapeHTML(item.name)}"><i></i>${escapeHTML(item.name)}<span aria-hidden="true">↗</span></button>`).join('');
     $('#todayLabel').textContent = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()).toUpperCase();
+  }
+  function refreshSubjectOptions() {
+    const options = subjects.map(item => `<option value="${escapeHTML(item.name)}">${escapeHTML(item.name)}</option>`).join('');
+    ['#taskSubject', '#quickAddForm select[name="subject"]', '#examSubject'].forEach(selector => {
+      const select = $(selector); if (!select) return;
+      const previous = select.value;
+      select.innerHTML = (selector === '#examSubject' ? '<option value="">Choose a subject</option>' : '') + options;
+      if (subjects.some(item => item.name === previous)) select.value = previous;
+    });
   }
   function renderSubjects() {
     $('#subjectPageGrid').innerHTML = subjects.map((subject, index) => {
@@ -271,7 +281,13 @@
       const input = form.elements.namedItem('link');
       input.setCustomValidity('Enter a valid http or https URL.'); input.reportValidity(); input.setCustomValidity(''); return false;
     }
-    tasks.push({ id: globalThis.crypto?.randomUUID?.() || `task-${Date.now()}-${Math.random().toString(36).slice(2)}`, title, subject: String(data.get('subject')), category: String(data.get('category')), due: dueDate.getTime(), link, completed: false });
+    let category = String(data.get('category'));
+    if (category === 'custom') {
+      const label = prompt('Enter a deadline type, such as Quiz or Presentation:')?.trim();
+      if (!label) return false;
+      category = `custom:${label.slice(0, 40)}`;
+    }
+    tasks.push({ id: globalThis.crypto?.randomUUID?.() || `task-${Date.now()}-${Math.random().toString(36).slice(2)}`, title, subject: String(data.get('subject')), category, due: dueDate.getTime(), link, completed: false });
     saveTasks(); renderAll(); showToast('Deadline added to your radar'); return true;
   }
   function openExamModal() {
@@ -327,6 +343,16 @@
   $('#subjectTaskList').addEventListener('click', handleCardAction);
   $('#categoryAddButton').addEventListener('click', () => openModal(activeView));
   $('#dashboardAddButton').addEventListener('click', () => openModal('assignments'));
+  $('#addSubjectButton').addEventListener('click', async () => {
+    const name = prompt('Subject name:')?.trim();
+    if (!name) return;
+    if (subjects.some(subject => subject.name.toLowerCase() === name.toLowerCase())) { showToast('That subject is already on your list'); return; }
+    const code = prompt('Subject code (optional):')?.trim() || 'CUSTOM SUBJECT';
+    const { data, error } = await cloud.from('subjects').insert({ user_id: currentUser.id, name: name.slice(0, 100), code: code.slice(0, 60) }).select().single();
+    if (error) { showToast(`Could not add subject: ${error.message}`); return; }
+    subjects.push({ name: data.name, code: data.code || 'CUSTOM SUBJECT' });
+    refreshSubjectOptions(); renderAll(); showToast('Subject added to your list');
+  });
   const examSubjectSelect = $('#examSubject');
   examSubjectSelect.innerHTML = '<option value="">Choose a subject</option>' + subjects.map(subject => `<option value="${escapeHTML(subject.name)}">${escapeHTML(subject.name)}</option>`).join('');
   $('#addExamButton').addEventListener('click', openExamModal);
@@ -386,13 +412,20 @@
     setAuthFeedback('');
   }
   async function loadCloudData() {
-    const [{ data: taskRows, error: taskError }, { data: examRows, error: examError }] = await Promise.all([
-      cloud.from('tasks').select('*').order('due_at'), cloud.from('exams').select('*').order('exam_at')
+    const [{ data: taskRows, error: taskError }, { data: examRows, error: examError }, { data: subjectRows, error: subjectError }] = await Promise.all([
+      cloud.from('tasks').select('*').order('due_at'), cloud.from('exams').select('*').order('exam_at'), cloud.from('subjects').select('*').order('name')
     ]);
-    if (taskError || examError) throw taskError || examError;
+    if (taskError || examError || subjectError) throw taskError || examError || subjectError;
+    if (subjectRows?.length) subjects = subjectRows.map(row => ({ name: row.name, code: row.code || 'CUSTOM SUBJECT' }));
+    else {
+      const { data, error } = await cloud.from('subjects').insert(defaultSubjects.map(subject => ({ user_id: currentUser.id, name: subject.name, code: subject.code }))).select();
+      if (error) throw error;
+      subjects = data.map(row => ({ name: row.name, code: row.code || 'CUSTOM SUBJECT' }));
+    }
     tasks = (taskRows || []).map(row => ({ id: row.id, title: row.title, subject: row.subject, category: row.category, due: new Date(row.due_at).getTime(), link: row.submission_link || '', completed: row.completed }));
     lastUrgencyById = new Map(tasks.map(task => [task.id, getUrgency(task)]));
     exams = (examRows || []).map(row => ({ id: row.id, title: row.title, subject: row.subject, date: new Date(row.exam_at).getTime(), duration: row.duration || '', venue: row.venue || '', reporting: row.reporting_time || '', notes: row.notes || '' }));
+    refreshSubjectOptions();
     const migrationKey = `radar.migrated.${currentUser.id}`;
     if (!tasks.length && !localStorage.getItem(migrationKey)) { tasks = loadTasks(); await saveTasks(); }
     if (!exams.length) { const oldExams = loadExams(); if (oldExams.length) { exams = oldExams; await saveExams(); } }

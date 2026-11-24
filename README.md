@@ -12,6 +12,7 @@ RADAR helps students organize coursework deadlines and exam dates, see what need
 - Receive browser notifications when a deadline changes from Safe to Approaching or from Approaching to Critical. See [notification details](NOTIFICATIONS.md).
 - Filter and search tasks, mark them complete, and copy formatted reminders.
 - Browse tasks by subject.
+- Add account-specific subjects and custom deadline types such as quizzes or presentations.
 - Sign in with email and password; tasks and exams are stored in Supabase and associated with the signed-in account.
 - Use dark or light theme, with the preference saved in the browser.
 - Responsive layout for laptop and phone screens.
@@ -96,6 +97,8 @@ grant select, insert, update, delete on public.tasks, public.exams to authentica
 In Supabase **Authentication → Sign In / Providers**, enable email/password sign-in. Email confirmation can be enabled or disabled. With confirmation enabled, configure a custom SMTP provider before inviting many users; the built-in email sender has strict limits.
 
 Each account has its own tasks and exams. Signing in with the same account on multiple devices syncs that account's records. Separate accounts do not share data unless workspace sharing is added.
+
+For the custom-subjects feature branch, run the additional migration in [CUSTOM-SUBJECTS.md](CUSTOM-SUBJECTS.md) before using the new subject editor or custom deadline types.
 
 ## Deploy with GitHub Pages
 
