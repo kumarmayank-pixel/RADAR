@@ -32,6 +32,7 @@
   let activeFilter = 'all';
   let categoryFilter = 'all';
   let toastTimer;
+  let editingTaskId = null;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -147,7 +148,7 @@
     return `<article class="task-card ${urgency}-card${completed ? ' completed-card' : ''}" data-task-id="${escapeHTML(task.id)}">
       <button class="task-check" type="button" data-action="toggle" aria-label="${completed ? 'Mark incomplete' : 'Mark completed'}: ${title}">${completed ? '✓' : ''}</button>
       <div class="task-main"><div class="task-title-row"><h3 class="task-title">${title}</h3><span class="urgency-badge ${urgency}">${statusLabel}</span></div><div class="task-subject">${subject}</div><div class="task-meta"><span class="meta-chip category">${escapeHTML(category)}</span><span class="meta-chip due">◷ ${escapeHTML(formatDue(task.due))}</span>${validLink ? `<a class="meta-chip" href="${escapeHTML(validLink)}" target="_blank" rel="noopener noreferrer">↗ Link</a>` : ''}</div></div>
-      <div class="task-actions"><span class="countdown" data-countdown="${escapeHTML(task.id)}">${completed ? '—' : formatCountdown(task.due)}</span><button class="copy-button" type="button" data-action="copy">☷ Copy Alert</button><button class="delete-button" type="button" data-action="delete" aria-label="Delete ${title}" title="Delete deadline">×</button></div>
+      <div class="task-actions"><span class="countdown" data-countdown="${escapeHTML(task.id)}">${completed ? '—' : formatCountdown(task.due)}</span><button class="copy-button" type="button" data-action="edit">✎ Edit</button><button class="copy-button" type="button" data-action="copy">☷ Copy Alert</button><button class="delete-button" type="button" data-action="delete" aria-label="Delete ${title}" title="Delete deadline">×</button></div>
     </article>`;
   }
   function matchesFilter(task, filter) { return filter === 'all' || getUrgency(task) === filter; }
@@ -178,7 +179,7 @@
     $('#todayLabel').textContent = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()).toUpperCase();
   }
   function refreshSubjectOptions() {
-    const options = subjects.map(item => `<option value="${escapeHTML(item.name)}">${escapeHTML(item.name)}</option>`).join('');
+    const options = subjects.map(item => `<option value="${escapeHTML(item.name)}">${escapeHTML(item.name)}</option>`).join('') + '<option value="__add_subject__">＋ Add subject…</option>';
     ['#taskSubject', '#quickAddForm select[name="subject"]', '#examSubject'].forEach(selector => {
       const select = $(selector); if (!select) return;
       const previous = select.value;
@@ -259,7 +260,9 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
   }
   function openModal(category = 'projects') {
+    editingTaskId = null;
     $('#taskForm').reset();
+    $('#modalTitle').textContent = 'Add a deadline';
     const due = new Date(); due.setDate(due.getDate() + 1); due.setHours(17, 0, 0, 0);
     const localDate = new Date(due.getTime() - due.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     $('#taskDue').value = localDate;
@@ -287,8 +290,11 @@
       if (!label) return false;
       category = `custom:${label.slice(0, 40)}`;
     }
-    tasks.push({ id: globalThis.crypto?.randomUUID?.() || `task-${Date.now()}-${Math.random().toString(36).slice(2)}`, title, subject: String(data.get('subject')), category, due: dueDate.getTime(), link, completed: false });
-    saveTasks(); renderAll(); showToast('Deadline added to your radar'); return true;
+    const wasEditing = Boolean(editingTaskId);
+    const existing = editingTaskId ? tasks.find(task => task.id === editingTaskId) : null;
+    const updated = { id: existing?.id || globalThis.crypto?.randomUUID?.() || `task-${Date.now()}-${Math.random().toString(36).slice(2)}`, title, subject: String(data.get('subject')), category, due: dueDate.getTime(), link, completed: existing?.completed || false };
+    if (existing) tasks = tasks.map(task => task.id === editingTaskId ? updated : task); else tasks.push(updated);
+    saveTasks(); renderAll(); showToast(wasEditing ? 'Deadline updated' : 'Deadline added to your radar'); return true;
   }
   function openExamModal() {
     $('#examForm').reset();
@@ -298,6 +304,16 @@
   }
   function closeExamModal() { $('#examModal').classList.add('hidden'); }
   function closeModal() { $('#taskModal').classList.add('hidden'); }
+  function openEditTask(task) {
+    openModal(task.category.startsWith('custom:') ? '' : task.category);
+    editingTaskId = task.id;
+    $('#modalTitle').textContent = 'Edit deadline';
+    $('#taskTitle').value = task.title;
+    $('#taskSubject').value = task.subject;
+    $('#taskCategory').value = task.category.startsWith('custom:') ? 'custom' : task.category;
+    $('#taskDue').value = new Date(Number(task.due) - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    $('#taskLink').value = task.link || '';
+  }
   function alertMessage(task) {
     const link = safeURL(task.link);
     return `📡 RADAR DEADLINE REMINDER\n\n📝 ${task.title}\n📚 ${task.subject}\n⏰ Due: ${formatDue(task.due)}\n${link ? `🔗 ${link}\n` : ''}\nStay ahead — you’ve got this!`;
@@ -317,6 +333,7 @@
     const actionButton = event.target.closest('[data-action]'); if (!actionButton) return;
     const card = actionButton.closest('[data-task-id]'); if (!card) return;
     const task = tasks.find(item => item.id === card.dataset.taskId); if (!task) return;
+    if (actionButton.dataset.action === 'edit') { openEditTask(task); return; }
     if (actionButton.dataset.action === 'toggle') { task.completed = !task.completed; saveTasks(); renderAll(); showToast(task.completed ? 'Deadline marked complete' : 'Deadline reopened'); }
     if (actionButton.dataset.action === 'delete') { tasks = tasks.filter(item => item.id !== task.id); saveTasks(); renderAll(); showToast('Deadline removed'); }
     if (actionButton.dataset.action === 'copy') copyAlert(task);
@@ -343,15 +360,33 @@
   $('#subjectTaskList').addEventListener('click', handleCardAction);
   $('#categoryAddButton').addEventListener('click', () => openModal(activeView));
   $('#dashboardAddButton').addEventListener('click', () => openModal('assignments'));
-  $('#addSubjectButton').addEventListener('click', async () => {
+  async function addSubjectFromPrompt() {
     const name = prompt('Subject name:')?.trim();
-    if (!name) return;
-    if (subjects.some(subject => subject.name.toLowerCase() === name.toLowerCase())) { showToast('That subject is already on your list'); return; }
+    if (!name) return null;
+    if (subjects.some(subject => subject.name.toLowerCase() === name.toLowerCase())) { showToast('That subject is already on your list'); return null; }
     const code = prompt('Subject code (optional):')?.trim() || 'CUSTOM SUBJECT';
     const { data, error } = await cloud.from('subjects').insert({ user_id: currentUser.id, name: name.slice(0, 100), code: code.slice(0, 60) }).select().single();
-    if (error) { showToast(`Could not add subject: ${error.message}`); return; }
-    subjects.push({ name: data.name, code: data.code || 'CUSTOM SUBJECT' });
-    refreshSubjectOptions(); renderAll(); showToast('Subject added to your list');
+    if (error) { showToast(`Could not add subject: ${error.message}`); return null; }
+    const added = { id: data.id, name: data.name, code: data.code || 'CUSTOM SUBJECT' };
+    subjects.push(added); refreshSubjectOptions(); renderAll(); showToast('Subject added to your list'); return added;
+  }
+  $('#addSubjectButton').addEventListener('click', addSubjectFromPrompt);
+  ['#taskSubject', '#quickAddForm select[name="subject"]', '#examSubject'].forEach(selector => $(selector).addEventListener('change', async event => {
+    if (event.target.value !== '__add_subject__') return;
+    const added = await addSubjectFromPrompt();
+    event.target.value = added?.name || subjects[0]?.name || '';
+  }));
+  $('#editSubjectButton').addEventListener('click', async () => {
+    const subject = subjects.find(item => item.name === selectedSubject); if (!subject) return;
+    const name = prompt('Edit subject name:', subject.name)?.trim(); if (!name || name === subject.name) return;
+    if (subjects.some(item => item !== subject && item.name.toLowerCase() === name.toLowerCase())) { showToast('A subject with that name already exists'); return; }
+    const code = prompt('Edit subject code:', subject.code || '')?.trim() ?? subject.code;
+    const { error } = await cloud.from('subjects').update({ name: name.slice(0, 100), code: code.slice(0, 60) }).eq('id', subject.id);
+    if (error) { showToast(`Could not edit subject: ${error.message}`); return; }
+    const oldName = subject.name; subject.name = name; subject.code = code;
+    tasks.forEach(task => { if (task.subject === oldName) task.subject = name; });
+    exams.forEach(exam => { if (exam.subject === oldName) exam.subject = name; });
+    selectedSubject = name; await Promise.all([saveTasks(), saveExams()]); refreshSubjectOptions(); renderAll(); showToast('Subject updated');
   });
   const examSubjectSelect = $('#examSubject');
   examSubjectSelect.innerHTML = '<option value="">Choose a subject</option>' + subjects.map(subject => `<option value="${escapeHTML(subject.name)}">${escapeHTML(subject.name)}</option>`).join('');
@@ -382,7 +417,7 @@
   });
   $('#taskForm').addEventListener('submit', event => {
     event.preventDefault();
-    if (addTaskFromForm(event.currentTarget)) { closeModal(); event.currentTarget.reset(); }
+    if (addTaskFromForm(event.currentTarget)) { closeModal(); event.currentTarget.reset(); editingTaskId = null; }
   });
   $('#quickAddForm').addEventListener('submit', event => {
     event.preventDefault();
@@ -416,11 +451,11 @@
       cloud.from('tasks').select('*').order('due_at'), cloud.from('exams').select('*').order('exam_at'), cloud.from('subjects').select('*').order('name')
     ]);
     if (taskError || examError || subjectError) throw taskError || examError || subjectError;
-    if (subjectRows?.length) subjects = subjectRows.map(row => ({ name: row.name, code: row.code || 'CUSTOM SUBJECT' }));
+    if (subjectRows?.length) subjects = subjectRows.map(row => ({ id: row.id, name: row.name, code: row.code || 'CUSTOM SUBJECT' }));
     else {
       const { data, error } = await cloud.from('subjects').insert(defaultSubjects.map(subject => ({ user_id: currentUser.id, name: subject.name, code: subject.code }))).select();
       if (error) throw error;
-      subjects = data.map(row => ({ name: row.name, code: row.code || 'CUSTOM SUBJECT' }));
+      subjects = data.map(row => ({ id: row.id, name: row.name, code: row.code || 'CUSTOM SUBJECT' }));
     }
     tasks = (taskRows || []).map(row => ({ id: row.id, title: row.title, subject: row.subject, category: row.category, due: new Date(row.due_at).getTime(), link: row.submission_link || '', completed: row.completed }));
     lastUrgencyById = new Map(tasks.map(task => [task.id, getUrgency(task)]));
